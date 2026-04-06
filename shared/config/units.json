@@ -1,0 +1,52 @@
+{
+  "worker": {
+    "cost": 80,
+    "hp": 70,
+    "damage": 6,
+    "base_damage": 4,
+    "attack_speed": 1.1,
+    "range": 20,
+    "speed": 1.4,
+    "crit_chance": 0.0
+  },
+  "melee": {
+    "cost": 110,
+    "hp": 160,
+    "damage": 20,
+    "base_damage": 10,
+    "attack_speed": 0.9,
+    "range": 24,
+    "speed": 1.1,
+    "crit_chance": 0.05
+  },
+  "ranged": {
+    "cost": 140,
+    "hp": 110,
+    "damage": 24,
+    "base_damage": 10,
+    "attack_speed": 1.1,
+    "range": 150,
+    "speed": 0.9,
+    "crit_chance": 0.1
+  },
+  "shielded": {
+    "cost": 150,
+    "hp": 240,
+    "damage": 14,
+    "base_damage": 8,
+    "attack_speed": 1.2,
+    "range": 22,
+    "speed": 0.8,
+    "crit_chance": 0.0
+  },
+  "heavy": {
+    "cost": 220,
+    "hp": 320,
+    "damage": 38,
+    "base_damage": 18,
+    "attack_speed": 1.4,
+    "range": 28,
+    "speed": 0.7,
+    "crit_chance": 0.12
+  }
+}
