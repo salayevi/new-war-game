@@ -4,7 +4,19 @@ from dataclasses import dataclass, field
 from itertools import count
 from random import random
 
-from app.core.config import BASE_HP, LANE_LENGTH, STARTING_GOLD, UNITS, WORKER_INCOME_TICKS
+from app.core.config import (
+    BASE_ATTACK_RANGE,
+    BASE_HP,
+    LANE_LENGTH,
+    STARTING_GOLD,
+    TARGET_LOCK_TICKS,
+    TICK_SECONDS,
+    UNIT_MIN_GAP,
+    UNITS,
+    WORKER_BASE_INCOME,
+    WORKER_INCOME_START_TICK,
+    WORKER_INCOME_TICKS,
+)
 from app.models.schema import BaseState, CommandType, PlayerState, Snapshot, Team, UnitCategory, UnitState
 
 
@@ -59,6 +71,7 @@ def _category(command: CommandType) -> UnitCategory | None:
 
 def apply_command(state: RuntimeState, team: Team, command: CommandType) -> None:
     actor = state.player if team == Team.PLAYER else state.ai
+    actor.last_command = command.value
 
     if command == CommandType.TECH_UP and actor.gold >= 120:
         actor.gold -= 120
@@ -97,16 +110,26 @@ def apply_command(state: RuntimeState, team: Team, command: CommandType) -> None
             hp=float(unit_cfg["hp"]),
             max_hp=float(unit_cfg["hp"]),
             cooldown=0,
+            state="moving",
         )
     )
 
 
-def _find_target(unit: UnitState, enemies: list[UnitState]) -> UnitState | None:
+def _find_target(unit: UnitState, enemies: list[UnitState], by_id: dict[str, UnitState]) -> UnitState | None:
     attack_range = UNITS[unit.category.value]["range"]
+
+    if unit.target_id and unit.target_lock > 0:
+        locked = by_id.get(unit.target_id)
+        if locked and abs(locked.x - unit.x) <= attack_range * 1.3:
+            return locked
+
     in_range = [e for e in enemies if abs(e.x - unit.x) <= attack_range]
     if not in_range:
         return None
+
     in_range.sort(key=lambda e: abs(e.x - unit.x))
+    unit.target_id = in_range[0].id
+    unit.target_lock = TARGET_LOCK_TICKS
     return in_range[0]
 
 
@@ -121,6 +144,41 @@ def _speed_for(unit: UnitState, mode: str) -> float:
     return base_speed
 
 
+def _should_hold_for_engagement(unit: UnitState, enemies: list[UnitState]) -> bool:
+    if UNITS[unit.category.value]["range"] > 35:
+        return False
+    if not enemies:
+        return False
+    nearest = min(abs(e.x - unit.x) for e in enemies)
+    return nearest <= 16
+
+
+def _resolve_separation(units: list[UnitState], team: Team) -> None:
+    lineup = sorted((u for u in units if u.team == team), key=lambda u: u.x)
+    if len(lineup) < 2:
+        return
+
+    if team == Team.PLAYER:
+        for i in range(1, len(lineup)):
+            prev = lineup[i - 1]
+            current = lineup[i]
+            if current.x - prev.x < UNIT_MIN_GAP:
+                current.x = prev.x + UNIT_MIN_GAP
+    else:
+        for i in range(len(lineup) - 2, -1, -1):
+            nxt = lineup[i + 1]
+            current = lineup[i]
+            if nxt.x - current.x < UNIT_MIN_GAP:
+                current.x = nxt.x - UNIT_MIN_GAP
+
+
+def _worker_income(units: list[UnitState], team: Team) -> int:
+    workers = sum(1 for unit in units if unit.team == team and unit.category == UnitCategory.WORKER)
+    if workers == 0:
+        return 0
+    return int(WORKER_BASE_INCOME * workers + 0.6 * max(workers - 2, 0))
+
+
 def step(state: RuntimeState) -> None:
     if state.winner:
         return
@@ -130,22 +188,20 @@ def step(state: RuntimeState) -> None:
     for side in (state.player, state.ai):
         side.gold += max(1, side.income)
 
-    if state.tick % WORKER_INCOME_TICKS == 0:
-        for unit in state.units:
-            if unit.category == UnitCategory.WORKER:
-                if unit.team == Team.PLAYER:
-                    state.player.gold += 6
-                else:
-                    state.ai.gold += 6
+    if state.tick >= WORKER_INCOME_START_TICK and state.tick % WORKER_INCOME_TICKS == 0:
+        state.player.gold += _worker_income(state.units, Team.PLAYER)
+        state.ai.gold += _worker_income(state.units, Team.AI)
 
+    by_id = {u.id: u for u in state.units}
     player_units = [u for u in state.units if u.team == Team.PLAYER]
     ai_units = [u for u in state.units if u.team == Team.AI]
 
     for unit in state.units:
         cfg = UNITS[unit.category.value]
-        unit.cooldown = max(0, unit.cooldown - 0.1)
+        unit.cooldown = max(0.0, unit.cooldown - TICK_SECONDS)
+        unit.target_lock = max(0, unit.target_lock - 1)
         enemies = ai_units if unit.team == Team.PLAYER else player_units
-        target = _find_target(unit, enemies)
+        target = _find_target(unit, enemies, by_id)
 
         if target and unit.cooldown <= 0:
             dmg = cfg["damage"]
@@ -154,7 +210,22 @@ def step(state: RuntimeState) -> None:
             if random() < cfg.get("crit_chance", 0):
                 dmg *= 1.25
             target.hp -= dmg
-            unit.cooldown = cfg["attack_speed"]
+            unit.cooldown = float(cfg["attack_speed"])
+            unit.state = "attacking"
+            continue
+
+        enemy_base_x = LANE_LENGTH - 45 if unit.team == Team.PLAYER else 45
+        if abs(enemy_base_x - unit.x) <= BASE_ATTACK_RANGE:
+            if unit.cooldown <= 0:
+                base = state.ai_base if unit.team == Team.PLAYER else state.player_base
+                base.hp -= cfg["base_damage"]
+                unit.cooldown = float(cfg["attack_speed"])
+            unit.state = "attacking"
+            unit.target_id = "base_ai" if unit.team == Team.PLAYER else "base_player"
+            continue
+
+        if _should_hold_for_engagement(unit, enemies):
+            unit.state = "attacking"
             continue
 
         mode = state.player.command_mode if unit.team == Team.PLAYER else state.ai.command_mode
@@ -163,14 +234,11 @@ def step(state: RuntimeState) -> None:
             unit.x = min(LANE_LENGTH - 40, unit.x + speed)
         else:
             unit.x = max(40, unit.x - speed)
+        unit.state = "moving"
 
     state.units = [u for u in state.units if u.hp > 0]
-
-    for unit in state.units:
-        if unit.team == Team.PLAYER and unit.x >= LANE_LENGTH - 45:
-            state.ai_base.hp -= UNITS[unit.category.value]["base_damage"]
-        elif unit.team == Team.AI and unit.x <= 45:
-            state.player_base.hp -= UNITS[unit.category.value]["base_damage"]
+    _resolve_separation(state.units, Team.PLAYER)
+    _resolve_separation(state.units, Team.AI)
 
     if state.ai_base.hp <= 0:
         state.winner = Team.PLAYER

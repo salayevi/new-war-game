@@ -45,7 +45,7 @@ export default function App() {
         ))}
         {state && (
           <div>
-            Tick {state.tick} | Gold {state.player.gold} vs {state.ai.gold} | Bases {Math.round(state.player_base.hp)} / {Math.round(state.ai_base.hp)}
+            Tick {state.tick} | Gold {state.player.gold} vs {state.ai.gold} | Bases {Math.round(state.player_base.hp)} / {Math.round(state.ai_base.hp)} | AI Cmd {state.ai.last_command ?? 'n/a'}
           </div>
         )}
       </div>

@@ -38,7 +38,8 @@
         "command_mode": {
           "type": "string",
           "enum": ["balanced", "defend", "push", "all_in"]
-        }
+        },
+        "last_command": { "type": ["string", "null"] }
       }
     },
     "baseState": {
@@ -59,7 +60,9 @@
         "x": { "type": "number" },
         "hp": { "type": "number" },
         "max_hp": { "type": "number" },
-        "cooldown": { "type": "number", "minimum": 0 }
+        "cooldown": { "type": "number", "minimum": 0 },
+        "target_id": { "type": ["string", "null"] },
+        "state": { "type": "string", "enum": ["moving", "attacking"] }
       }
     }
   }

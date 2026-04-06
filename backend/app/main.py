@@ -6,7 +6,7 @@ import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.ai.commander import choose_command, explain_intent
+from app.ai.commander import AIDecision, decide, decision_to_chat
 from app.core.config import AI_CHAT_PERIOD_TICKS, AI_DECISION_PERIOD_TICKS, STATE_BROADCAST_EVERY, TICK_RATE
 from app.core.simulation import RuntimeState, apply_command, step
 from app.models.schema import ChatMessage, ClientCommand, Team
@@ -29,6 +29,7 @@ async def health() -> dict[str, str]:
 async def match_socket(ws: WebSocket) -> None:
     await ws.accept()
     state = RuntimeState()
+    latest_ai_decision: AIDecision | None = None
 
     async def recv_loop() -> None:
         while True:
@@ -42,16 +43,21 @@ async def match_socket(ws: WebSocket) -> None:
                 await ws.send_text(json.dumps({"type": "chat", "payload": echo.model_dump()}))
 
     async def tick_loop() -> None:
+        nonlocal latest_ai_decision
+
         while True:
             step(state)
 
             if state.tick % AI_DECISION_PERIOD_TICKS == 0 and not state.winner:
-                ai_action = choose_command(state.snapshot())
-                apply_command(state, Team.AI, ai_action)
+                latest_ai_decision = decide(state.snapshot())
+                apply_command(state, Team.AI, latest_ai_decision.command)
 
-            if state.tick % AI_CHAT_PERIOD_TICKS == 0:
-                cmd = choose_command(state.snapshot())
-                msg = ChatMessage(from_id="ai", text=explain_intent(cmd, state.snapshot()), tick=state.tick)
+            if state.tick % AI_CHAT_PERIOD_TICKS == 0 and latest_ai_decision:
+                msg = ChatMessage(
+                    from_id="ai",
+                    text=decision_to_chat(latest_ai_decision),
+                    tick=state.tick,
+                )
                 await ws.send_text(json.dumps({"type": "chat", "payload": msg.model_dump()}))
 
             if state.tick % STATE_BROADCAST_EVERY == 0:

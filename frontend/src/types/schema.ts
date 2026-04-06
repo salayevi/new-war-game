@@ -9,12 +9,15 @@ export interface UnitState {
   hp: number;
   max_hp: number;
   cooldown: number;
+  target_id?: string | null;
+  state?: 'moving' | 'attacking';
 }
 
 export interface SideState {
   gold: number;
   income: number;
   command_mode: string;
+  last_command?: string | null;
 }
 
 export interface BaseState {

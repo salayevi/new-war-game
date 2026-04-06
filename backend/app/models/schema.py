@@ -38,6 +38,8 @@ class UnitState(BaseModel):
     max_hp: float
     cooldown: float = 0.0
     target_id: str | None = None
+    state: str = "moving"
+    target_lock: int = 0
 
 
 class BaseState(BaseModel):
@@ -49,6 +51,7 @@ class PlayerState(BaseModel):
     gold: int
     income: int
     command_mode: str = "balanced"
+    last_command: str | None = None
 
 
 class Snapshot(BaseModel):
