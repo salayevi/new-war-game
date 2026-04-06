@@ -3,31 +3,24 @@ import { useState } from 'react';
 interface Props {
   sendCommand: (command: string) => void;
   sendChat: (text: string) => void;
+  restart: () => void;
+  winner: 'player' | 'ai' | null;
 }
 
-const commands = [
-  'spawn_worker',
-  'spawn_melee',
-  'spawn_ranged',
-  'spawn_shielded',
-  'spawn_heavy',
-  'defend',
-  'push',
-  'all_in',
-  'tech_up',
-];
+const commands = ['spawn_worker', 'spawn_melee', 'spawn_ranged', 'spawn_shielded', 'spawn_heavy', 'defend', 'push', 'all_in', 'tech_up'];
 
-export function ControlPanel({ sendCommand, sendChat }: Props) {
+export function ControlPanel({ sendCommand, sendChat, restart, winner }: Props) {
   const [text, setText] = useState('');
 
   return (
     <div style={{ color: 'white', fontFamily: 'sans-serif', display: 'grid', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         {commands.map((c) => (
-          <button key={c} onClick={() => sendCommand(c)}>
+          <button key={c} onClick={() => sendCommand(c)} disabled={winner !== null}>
             {c}
           </button>
         ))}
+        <button onClick={restart}>restart</button>
       </div>
       <form
         onSubmit={(e) => {

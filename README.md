@@ -1,60 +1,9 @@
-# Lane RTS Rivalry (MVP)
+# Lane RTS Rivalry (Frontend-Only Prototype)
 
-An original 2D side-view lane-based RTS prototype with server-authoritative combat, real-time human vs AI battle, and live rival-commander chat.
+This is a **single-runtime browser RTS prototype**. The game now runs entirely in the frontend (React + Phaser) with no backend process required for local play.
 
-## 1) Project folder structure
+## Quick start (local)
 
-```text
-new-war-game/
-  backend/
-    app/
-      ai/commander.py
-      core/config.py
-      core/simulation.py
-      models/schema.py
-      main.py
-    requirements.txt
-  frontend/
-    src/
-      components/ControlPanel.tsx
-      game/LaneScene.ts
-      hooks/useMatchSocket.ts
-      types/schema.ts
-      App.tsx
-      main.tsx
-    index.html
-    package.json
-    tsconfig.json
-    vite.config.ts
-  shared/
-    config/units.json
-    protocol/websocket.md
-    schemas/game_state.schema.json
-  docs/
-    architecture.md
-```
-
-## 2) MVP implementation summary
-
-- Real-time WebSocket session with server tick loop.
-- Server-authoritative economy, movement, combat, and base victory.
-- Unit categories: worker, melee, ranged, shielded, heavy.
-- AI commander selects strategic actions (`defend`, `push`, `all_in`, `tech_up`, spawns).
-- AI chat layer emits tactical personality lines periodically.
-- Frontend renders units as simple geometric placeholders (circles + health bars).
-
-## 3) Setup instructions
-
-### Backend
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### Frontend
 ```bash
 cd frontend
 npm install
@@ -63,63 +12,39 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## 4) WebSocket protocol spec
+## Current architecture (frontend-only)
 
-See `shared/protocol/websocket.md`.
+```text
+frontend/src/
+  ai/                 # local AI commander decisions
+  chat/               # chat integration from AI decisions + player text
+  config/             # tuneable unit + game constants
+  components/         # React UI controls
+  game/               # shared game-type exports
+  hooks/              # useGameController (authoritative local loop)
+  rendering/          # render helpers (colors/lanes)
+  scenes/             # Phaser lane scene (render-only)
+  simulation/         # economy/spawn/combat/engine
+  state/              # initial state factory
+  types/              # schema interfaces
+```
 
-## 5) Unit config schema
+## Runtime ownership
 
-See `shared/config/units.json` for editable stat table and `shared/schemas/game_state.schema.json` for state payload schema.
+- **Authoritative state:** `useGameController` (local in-memory snapshot)
+- **Simulation tick:** local interval loop (`tickRate`)
+- **AI decisions:** local rule-based commander
+- **AI chat:** derived from the same decision object used for gameplay commands
+- **Phaser scene:** render-only, incremental sprite lifecycle (create/update/destroy)
 
-## 6) AI decision interface
+## Controls
 
-`backend/app/ai/commander.py`
-- `choose_command(snapshot) -> CommandType`
-- `explain_intent(command, snapshot) -> str`
+- Spawn: `spawn_worker`, `spawn_melee`, `spawn_ranged`, `spawn_shielded`, `spawn_heavy`
+- Stances: `defend`, `push`, `all_in`, `tech_up`
+- Chat with AI commander in the text box
+- Restart button resets the local match
 
-Both consume structured snapshot data and return either strategic command tokens or natural-language explanations.
+## Legacy backend status
 
-## 7) Chat integration layer
-
-- Player sends chat via WebSocket `{type: "player_chat", text: "..."}`.
-- Server mirrors player message and injects AI chat lines every chat interval.
-- Frontend displays rolling chat transcript in HUD.
-
-## 8) Placeholder art approach
-
-MVP uses simple shapes to avoid proprietary assets:
-- Bases: colored rectangles
-- Units: category-colored circles
-- HP bars: tiny rectangles above units
-- Background: flat color lane
-
-This keeps iteration fast while preserving readability for balance tests.
-
-## 9) Step-by-step local run
-
-1. Start backend server on `:8000`.
-2. Start frontend Vite app on `:5173`.
-3. Open browser tab.
-4. Spawn economy and combat units.
-5. Use command-mode buttons to set macro posture.
-6. Watch AI react and taunt in chat.
-7. Win by reducing enemy base HP to zero.
-
-## 10) Phase 2 backlog
-
-- Multi-lane maps and fog-of-war.
-- Deterministic replay logging and re-sim validation.
-- Ability system (active skills + cooldown UI).
-- Better pathing and formation spacing.
-- Auth + matchmaking + persistent profiles.
-- LLM-backed commander with memory and configurable persona.
-- Spectator mode and balance telemetry dashboard.
-
-## MVP task breakdown
-
-1. Define shared schema + protocol documents.
-2. Build server tick simulation and command handlers.
-3. Add AI strategy policy and chat personality output.
-4. Build React command/chat HUD and WebSocket hook.
-5. Integrate Phaser lane rendering from snapshots.
-6. Wire run scripts and docs for local execution.
+The Python backend remains in `backend/` as a **legacy reference** and is currently **not required** for running this version.
+A future server-authoritative mode can be reintroduced later if needed.

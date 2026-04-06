@@ -1,5 +1,15 @@
 export type Team = 'player' | 'ai';
 export type UnitCategory = 'worker' | 'melee' | 'ranged' | 'shielded' | 'heavy';
+export type CommandType =
+  | 'spawn_worker'
+  | 'spawn_melee'
+  | 'spawn_ranged'
+  | 'spawn_shielded'
+  | 'spawn_heavy'
+  | 'defend'
+  | 'push'
+  | 'all_in'
+  | 'tech_up';
 
 export interface UnitState {
   id: string;
@@ -11,13 +21,14 @@ export interface UnitState {
   cooldown: number;
   target_id?: string | null;
   state?: 'moving' | 'attacking';
+  target_lock?: number;
 }
 
 export interface SideState {
   gold: number;
   income: number;
-  command_mode: string;
-  last_command?: string | null;
+  command_mode: 'balanced' | 'defend' | 'push' | 'all_in';
+  last_command?: CommandType | null;
 }
 
 export interface BaseState {
@@ -41,4 +52,12 @@ export interface ChatMessage {
   from_id: 'player' | 'ai';
   text: string;
   tick: number;
+}
+
+export interface AIDecision {
+  command: CommandType;
+  reasoning: string;
+  chatLine: string;
+  mood: 'focused' | 'calculated' | 'aggressive' | 'adapting' | 'patient' | 'assertive' | 'taunting' | 'confident';
+  target?: string;
 }
