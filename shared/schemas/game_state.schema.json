@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schema/game_state.schema.json",
+  "title": "LaneRTS Snapshot",
+  "type": "object",
+  "required": [
+    "match_id",
+    "tick",
+    "lane_length",
+    "player",
+    "ai",
+    "player_base",
+    "ai_base",
+    "units",
+    "winner"
+  ],
+  "properties": {
+    "match_id": { "type": "string" },
+    "tick": { "type": "integer", "minimum": 0 },
+    "lane_length": { "type": "integer", "minimum": 100 },
+    "winner": { "type": ["string", "null"], "enum": ["player", "ai", null] },
+    "player": { "$ref": "#/$defs/sideState" },
+    "ai": { "$ref": "#/$defs/sideState" },
+    "player_base": { "$ref": "#/$defs/baseState" },
+    "ai_base": { "$ref": "#/$defs/baseState" },
+    "units": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/unitState" }
+    }
+  },
+  "$defs": {
+    "sideState": {
+      "type": "object",
+      "required": ["gold", "income", "command_mode"],
+      "properties": {
+        "gold": { "type": "integer", "minimum": 0 },
+        "income": { "type": "integer", "minimum": 0 },
+        "command_mode": {
+          "type": "string",
+          "enum": ["balanced", "defend", "push", "all_in"]
+        },
+        "last_command": { "type": ["string", "null"] }
+      }
+    },
+    "baseState": {
+      "type": "object",
+      "required": ["hp", "max_hp"],
+      "properties": {
+        "hp": { "type": "number", "minimum": 0 },
+        "max_hp": { "type": "number", "minimum": 1 }
+      }
+    },
+    "unitState": {
+      "type": "object",
+      "required": ["id", "team", "category", "x", "hp", "max_hp", "cooldown"],
+      "properties": {
+        "id": { "type": "string" },
+        "team": { "type": "string", "enum": ["player", "ai"] },
+        "category": { "type": "string", "enum": ["worker", "melee", "ranged", "shielded", "heavy"] },
+        "x": { "type": "number" },
+        "hp": { "type": "number" },
+        "max_hp": { "type": "number" },
+        "cooldown": { "type": "number", "minimum": 0 },
+        "target_id": { "type": ["string", "null"] },
+        "state": { "type": "string", "enum": ["moving", "attacking"] }
+      }
+    }
+  }
+}
